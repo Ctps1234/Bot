@@ -19,15 +19,20 @@ import {
 import { Badge, Card, CardHeader, EmptyState, PageHeader, Stat } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/input";
-import { qs } from "@/lib/api-client";
+import { useToast } from "@/components/ui/toast";
+import { api, errorMessage, qs } from "@/lib/api-client";
 import { cn, formatDate, formatMoney, formatShortDate } from "@/lib/utils";
 import {
+  FIN_LABEL,
   PAYMENT_METHOD_LABEL,
   STATUS_LABEL,
   STATUS_TONE,
   type OrderStatus,
+  type OrderWithRelations,
 } from "@/lib/types";
 import type { ReportData } from "@/server/db/stats";
+
+
 
 export function ReportsView({
   report,
@@ -37,6 +42,7 @@ export function ReportsView({
   presets: Record<string, { from: string; to: string }>;
 }) {
   const router = useRouter();
+  const toast = useToast();
   const [from, setFrom] = useState(report.period.from);
   const [to, setTo] = useState(report.period.to);
   const [activePreset, setActivePreset] = useState<string | null>(null);
@@ -55,26 +61,94 @@ export function ReportsView({
     router.replace(`/relatorios${qs({ from, to })}`);
   }
 
-  function exportCsv() {
-    const lines: string[] = [
-      "OS;Cliente;Veículo;Status;Entrada;Total (R$);Recebido (R$);Saldo (R$)",
-    ];
-    // dados agregados disponíveis no relatório
-    report.topServices.forEach((s) =>
-      lines.push(`SERVICO;${s.description};${s.count}x;-;-;${(s.revenueCents / 100).toFixed(2)};-;-`),
-    );
-    report.topParts.forEach((p) =>
-      lines.push(`PECA;${p.description};${p.count}x;-;-;${(p.revenueCents / 100).toFixed(2)};-;-`),
-    );
-    const blob = new Blob(["\uFEFF" + lines.join("\n")], {
-      type: "text/csv;charset=utf-8;",
-    });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `relatorio-oficina-${from}_${to}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+  const [exporting, setExporting] = useState(false);
+
+  /** Escapa um campo para CSV (; como separador, padrão Excel pt-BR). */
+  function csvField(value: unknown): string {
+    const text = value === null || value === undefined ? "" : String(value);
+    return /[;"\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+  }
+
+  /** Centavos -> "1234,56" (vírgula decimal, sem separador de milhar). */
+  function csvMoney(cents: number): string {
+    return (cents / 100).toFixed(2).replace(".", ",");
+  }
+
+  /**
+   * Exporta as OS do período — mesmas colunas exibidas na tela.
+   * Busca na API porque o relatório traz apenas agregados.
+   */
+  async function exportCsv() {
+    setExporting(true);
+    try {
+      const data = await api.get<{ rows: OrderWithRelations[] }>(
+        `/api/orders${qs({ from, to, limit: 500 })}`,
+      );
+
+      if (data.rows.length === 0) {
+        toast.info("Nada para exportar", "Nenhuma OS encontrada neste período.");
+        return;
+      }
+
+      const header = [
+        "OS",
+        "Cliente",
+        "Veículo",
+        "Placa",
+        "Status",
+        "Pagamento",
+        "Entrada",
+        "Previsão de entrega",
+        "Entregue em",
+        "KM",
+        "Total (R$)",
+        "Recebido (R$)",
+        "Saldo (R$)",
+      ];
+
+      const lines = [header.join(";")];
+      for (const o of data.rows) {
+        const vehicleName = [o.vehicle.brand, o.vehicle.model].filter(Boolean).join(" ");
+        lines.push(
+          [
+            o.number,
+            o.client.name,
+            vehicleName,
+            o.vehicle.plate,
+            STATUS_LABEL[o.status],
+            FIN_LABEL[o.financialStatus],
+            formatDate(o.entryDate),
+            o.expectedFinish ? formatDate(o.expectedFinish) : "",
+            o.deliveredAt ? formatDate(o.deliveredAt) : "",
+            o.mileageIn ?? "",
+            csvMoney(o.totalCents),
+            csvMoney(o.paidCents),
+            csvMoney(Math.max(0, o.balanceCents)),
+          ]
+            .map(csvField)
+            .join(";"),
+        );
+      }
+
+      // BOM para o Excel reconhecer UTF-8 (acentos)
+      const blob = new Blob(["\uFEFF" + lines.join("\r\n")], {
+        type: "text/csv;charset=utf-8;",
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `ordens-de-servico_${from}_${to}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+
+      toast.success("CSV exportado", `${data.rows.length} ordem(ns) de serviço do período.`);
+    } catch (error) {
+      toast.error("Não foi possível exportar", errorMessage(error));
+    } finally {
+      setExporting(false);
+    }
   }
 
   const t = report.totals;
@@ -93,8 +167,13 @@ export function ReportsView({
         subtitle={`${formatShortDate(report.period.from)} até ${formatShortDate(report.period.to)} · ${t.orders} OS no período`}
         actions={
           <>
-            <Button icon={<Download className="h-4 w-4" />} onClick={exportCsv}>
-              Exportar CSV
+            <Button
+              icon={<Download className="h-4 w-4" />}
+              onClick={exportCsv}
+              loading={exporting}
+              disabled={report.totals.orders === 0}
+            >
+              {exporting ? "Exportando…" : "Exportar CSV"}
             </Button>
             <Button icon={<Printer className="h-4 w-4" />} onClick={() => window.print()}>
               Imprimir

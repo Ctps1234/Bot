@@ -4,6 +4,7 @@ import { statsRepo, currentMonthPeriod } from "@/server/db/stats";
 import { ordersRepo } from "@/server/db/orders";
 import { clientsRepo } from "@/server/db/clients";
 import { settingsRepo } from "@/server/db/settings";
+import { todayISO } from "@/lib/utils";
 import { DashboardView } from "./dashboard-view";
 
 export const metadata: Metadata = { title: "Painel" };
@@ -16,11 +17,14 @@ export default async function DashboardPage() {
   const period = currentMonthPeriod();
   const recent = statsRepo.recentOrders(8);
   const active = ordersRepo.list({ status: "ATIVAS", limit: 8 }).rows;
+
+  // `expected_finish` é uma data local (YYYY-MM-DD); a comparação precisa usar a
+  // data local de hoje. `new Date().toISOString()` devolveria a data UTC, o que
+  // em fuso negativo adiantaria o alerta de atraso em um dia.
+  const today = todayISO();
   const overdue = ordersRepo
     .list({ status: "ATIVAS", limit: 100 })
-    .rows.filter(
-      (o) => o.expectedFinish && o.expectedFinish < new Date().toISOString().slice(0, 10),
-    );
+    .rows.filter((o) => o.expectedFinish && o.expectedFinish < today);
 
   return (
     <DashboardView

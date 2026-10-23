@@ -152,11 +152,18 @@ export const statsRepo = {
         .get()?.s,
     );
 
+    /*
+     * `delivered_at` é um instante UTC (ISO completo), enquanto `from`/`to` são
+     * datas locais. O modificador 'localtime' converte o instante para o fuso do
+     * servidor antes de extrair o dia — sem ele, entregas feitas no fim do dia
+     * cairiam no mês errado em fusos negativos (Brasil, UTC-3).
+     */
     const deliveredThisMonth = num(
       db
         .prepare(
           `SELECT COUNT(*) AS c FROM orders
-            WHERE delivered_at IS NOT NULL AND date(delivered_at) BETWEEN ? AND ?`,
+            WHERE delivered_at IS NOT NULL
+              AND date(delivered_at, 'localtime') BETWEEN ? AND ?`,
         )
         .get(from, to)?.c,
     );

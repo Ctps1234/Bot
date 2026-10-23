@@ -133,11 +133,39 @@ Decisões de modelagem:
 - **Dinheiro em centavos** (`INTEGER`), nunca `float` — evita erro de arredondamento em
   somatórios financeiros.
 - **Datas em ISO-8601** (texto), comparáveis lexicalmente e portáveis entre SQLite e Postgres.
+  Campos puramente comerciais (`entry_date`, `expected_finish`, `paid_at`) guardam **só a data**
+  (`YYYY-MM-DD`); marcos de fluxo (`finished_at`, `delivered_at`, `canceled_at`) guardam o
+  **instante completo** em UTC.
 - Totais da OS (`items_total_cents`, `total_cents`, `paid_cents`, `financial_status`) são
   **desnormalizados** e recalculados em transação a cada mudança de item/pagamento, para as
   listagens e relatórios não precisarem de joins pesados.
 - `ON DELETE RESTRICT` em `orders.client_id` / `orders.vehicle_id`: histórico nunca é perdido por
   exclusão acidental de cadastro.
+
+### Fuso horário (importante para o Brasil)
+
+O JavaScript interpreta uma string só-data (`"2026-10-19"`) como **meia-noite UTC**. Em fuso de
+deslocamento negativo — como `America/Sao_Paulo` (UTC-3) — isso faz `getDate()` devolver o dia
+anterior, e **toda data apareceria um dia antes** na tela e no CSV.
+
+Por isso:
+
+- `toDate()` em `src/lib/utils.ts` detecta o formato só-data e constrói a data a partir de
+  componentes **locais** (`new Date(ano, mês-1, dia)`), em vez de passar a string ao construtor.
+  Com isso, datas comerciais ficam invariantes ao fuso do servidor e do navegador — não há risco
+  de divergência de hidratação entre server e client components.
+- Instantes completos continuam sendo exibidos no fuso local (`formatDateTime`).
+- No SQL, agregações sobre instantes usam `date(coluna, 'localtime')` — sem o modificador, o
+  SQLite extrairia o dia em UTC e uma entrega feita às 23h cairia no mês seguinte.
+- Comparações de "hoje" usam `todayISO()` (data local), nunca `new Date().toISOString().slice(0,10)`.
+
+**Em produção, defina o fuso do servidor** para o da oficina, já que o SQLite resolve `'localtime'`
+por ele:
+
+```bash
+TZ=America/Sao_Paulo npm run start
+```
+
 
 ### Trocando o driver SQLite
 

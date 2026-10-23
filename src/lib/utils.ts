@@ -54,10 +54,39 @@ const MONTHS_PT = [
   "dez",
 ];
 
+const DATE_ONLY = /^(\d{4})-(\d{2})-(\d{2})$/;
+
 function toDate(value: string | Date | null | undefined): Date | null {
   if (!value) return null;
-  const d = value instanceof Date ? value : new Date(value);
-  return Number.isNaN(d.getTime()) ? null : d;
+
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : value;
+  }
+
+  const text = String(value).trim();
+
+  /*
+   * Data sem hora ("2026-10-19" — formato em que gravamos entry_date,
+   * expected_finish e paid_at) precisa ser interpretada como data LOCAL.
+   *
+   * O JavaScript trata date-only ISO como meia-noite **UTC**; em fusos de
+   * deslocamento negativo (Brasil, UTC-3) isso faz `getDate()` devolver o dia
+   * anterior e toda data apareceria um dia antes na tela.
+   */
+  const dateOnly = DATE_ONLY.exec(text);
+  if (dateOnly) {
+    const local = new Date(
+      Number(dateOnly[1]),
+      Number(dateOnly[2]) - 1,
+      Number(dateOnly[3]),
+    );
+    return Number.isNaN(local.getTime()) ? null : local;
+  }
+
+  // Timestamp completo (ex.: delivered_at) mantém a semântica de instante UTC
+  // e é exibido no fuso local.
+  const parsed = new Date(text);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
 /** Data ISO local (YYYY-MM-DD) para uma data, no fuso do servidor/navegador. */
