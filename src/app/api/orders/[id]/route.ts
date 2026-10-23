@@ -62,7 +62,7 @@ export const PATCH = withAuth(null, async (request, _user, ctx) => {
     }
   }
 
-  const updated = ordersRepo.update(id, {
+  ordersRepo.update(id, {
     ...(patch.entryDate ? { entryDate: toISODate(patch.entryDate) ?? patch.entryDate } : {}),
     ...(patch.expectedFinish !== undefined
       ? { expectedFinish: patch.expectedFinish ? toISODate(patch.expectedFinish) : null }
@@ -80,7 +80,19 @@ export const PATCH = withAuth(null, async (request, _user, ctx) => {
     ...(patch.status ? { status: patch.status as OrderStatus } : {}),
   });
 
-  return ok({ order: ordersRepo.findDetailed(updated!.id) });
+  const detailed = ordersRepo.findDetailed(id);
+
+  /*
+   * Reavalia o hodômetro apenas quando o KM ou o veículo mudaram nesta
+   * atualização, para não repetir o aviso em edições que não os tocam.
+   * A própria OS é excluída da comparação contra o histórico.
+   */
+  const warning =
+    detailed && (patch.mileageIn !== undefined || patch.vehicleId !== undefined)
+      ? ordersRepo.mileageWarning(detailed.vehicleId, detailed.mileageIn, detailed.id)
+      : null;
+
+  return ok({ order: detailed, warning });
 });
 
 export const DELETE = withAuth(["ADMIN"], async (_request, _user, ctx) => {

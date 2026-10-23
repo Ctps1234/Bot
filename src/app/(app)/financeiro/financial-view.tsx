@@ -12,7 +12,7 @@ import {
   Wallet,
   X,
 } from "lucide-react";
-import { Card, EmptyState, PageHeader, Stat } from "@/components/ui/card";
+import { Card, CardHeader, EmptyState, PageHeader, Stat } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Field, Input, SearchInput, Select } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
@@ -27,6 +27,40 @@ import {
   type OrderStatus,
   type PaymentMethod,
 } from "@/lib/types";
+import type { AgingBucketKey, ReceivablesAging } from "@/server/db/stats";
+
+/**
+ * Cores por faixa de atraso: quanto mais antigo o saldo, mais urgente.
+ * "Ainda não entregue" fica em azul porque é receita em andamento, não
+ * inadimplência.
+ */
+const AGING_TONE: Record<AgingBucketKey, { box: string; label: string; text: string }> = {
+  ATE_7: {
+    box: "border-line bg-slate-50",
+    label: "text-slate-600",
+    text: "text-slate-700",
+  },
+  DE_8_A_30: {
+    box: "border-amber-200 bg-amber-50",
+    label: "text-amber-700",
+    text: "text-amber-700",
+  },
+  DE_31_A_60: {
+    box: "border-orange-200 bg-orange-50",
+    label: "text-orange-700",
+    text: "text-orange-700",
+  },
+  ACIMA_60: {
+    box: "border-red-200 bg-red-50",
+    label: "text-red-700",
+    text: "text-red-700",
+  },
+  NAO_ENTREGUE: {
+    box: "border-sky-200 bg-sky-50",
+    label: "text-sky-700",
+    text: "text-sky-700",
+  },
+};
 
 export interface FinancialRow {
   id: number;
@@ -55,6 +89,7 @@ export function FinancialView({
   totals: initialTotals,
   initial,
   period,
+  aging,
 }: {
   rows: FinancialRow[];
   totals: {
@@ -66,6 +101,8 @@ export function FinancialView({
   };
   initial: { q: string; fin: string };
   period: { from: string; to: string };
+  /** Contas a receber por faixa de atraso — calculado no servidor. */
+  aging: ReceivablesAging;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -191,6 +228,95 @@ export function FinancialView({
           tone="info"
         />
       </div>
+
+      <Card className="mt-4">
+        <CardHeader
+          title="Contas a receber por atraso"
+          subtitle={`${aging.totalOrders} OS com saldo em aberto · ${formatMoney(
+            aging.totalCents,
+          )} a receber`}
+          icon={<Clock className="h-4.5 w-4.5" />}
+        />
+
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+          {aging.buckets.map((b) => (
+            <div key={b.key} className={cn("rounded-lg border p-3", AGING_TONE[b.key].box)}>
+              <p
+                className={cn(
+                  "text-[11px] font-semibold tracking-wide uppercase",
+                  AGING_TONE[b.key].label,
+                )}
+              >
+                {b.label}
+              </p>
+              <p className="tnum mt-1 text-lg font-bold text-slate-900">
+                {formatMoney(b.amountCents)}
+              </p>
+              <p className="text-[11px] text-slate-500">{b.orders} OS</p>
+            </div>
+          ))}
+        </div>
+
+        {aging.rows.length > 0 ? (
+          <div className="mt-4 overflow-x-auto">
+            <table className="table-base min-w-[44rem]">
+              <thead>
+                <tr>
+                  <th className="w-24">OS</th>
+                  <th>Cliente</th>
+                  <th className="w-40">Veículo</th>
+                  <th className="w-32">Cobrança desde</th>
+                  <th className="w-20 text-right">Dias</th>
+                  <th className="w-28 text-right">Saldo</th>
+                </tr>
+              </thead>
+              <tbody>
+                {aging.rows.map((r) => (
+                  <tr key={r.id}>
+                    <td
+                      className="cursor-pointer font-bold text-slate-900 hover:text-brand-700"
+                      onClick={() => router.push(`/os/${r.id}`)}
+                    >
+                      {r.number}
+                    </td>
+                    <td className="max-w-[13rem] truncate font-medium text-slate-800">
+                      {r.clientName}
+                    </td>
+                    <td className="whitespace-nowrap">
+                      <PlateTag plate={r.vehiclePlate} />
+                      {r.vehicleLabel ? (
+                        <span className="ml-1.5 text-xs text-slate-500">{r.vehicleLabel}</span>
+                      ) : null}
+                    </td>
+                    <td className="whitespace-nowrap text-slate-600">
+                      {r.anchorDate ? formatDate(r.anchorDate) : "—"}
+                    </td>
+                    <td className="tnum text-right">
+                      {r.bucket === "NAO_ENTREGUE" ? (
+                        <span className="text-slate-400">—</span>
+                      ) : (
+                        <span className={cn("font-semibold", AGING_TONE[r.bucket].text)}>
+                          {r.daysOpen}
+                        </span>
+                      )}
+                    </td>
+                    <td className="tnum text-right font-bold text-red-600">
+                      {formatMoney(r.balanceCents)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <EmptyState
+            className="mt-4"
+            title="Nada a receber"
+            description="Nenhuma ordem de serviço com saldo em aberto no momento."
+            icon={<CheckCircle2 className="h-6 w-6" />}
+          />
+        )}
+      </Card>
 
       <Card className="mt-4" padded={false}>
         <div className="flex flex-wrap items-center gap-2 border-b border-line p-3 sm:p-4">

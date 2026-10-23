@@ -189,12 +189,14 @@ export function OrderForm({
           voltage: newVehicle.voltage,
         };
 
-      const { order } = await api.post<{ order: { id: number; number: string } }>(
-        "/api/orders",
-        payload,
-      );
+      const { order, warning } = await api.post<{
+        order: { id: number; number: string };
+        warning: string | null;
+      }>("/api/orders", payload);
 
       toast.success(`OS ${order.number} criada`, "Cliente e veículo vinculados com sucesso.");
+      // Aviso não bloqueante: a OS foi criada, mas o KM merece conferência.
+      if (warning) toast.warning("Confira o hodômetro", warning);
       router.push(`/os/${order.id}`);
       router.refresh();
     } catch (err) {

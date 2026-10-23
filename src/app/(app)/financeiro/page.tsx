@@ -23,12 +23,16 @@ export default async function FinancialPage({
 
   const monthReceived = statsRepo.dashboard().receivedThisMonth;
 
+  // Contas a receber por faixa de atraso (não depende dos filtros da tabela).
+  const aging = statsRepo.receivablesAging(8);
+
   return (
     <FinancialView
       initial={{ q: sp.q ?? "", fin: sp.fin ?? "TODAS" }}
       totals={{ ...data.totals, receivedThisMonthCents: monthReceived }}
       rows={data.rows}
       period={period}
+      aging={aging}
     />
   );
 }

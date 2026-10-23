@@ -164,5 +164,12 @@ export const POST = withAuth(null, async (request, user) => {
     ordersRepo.addItems(order.id, data.items.map((i) => ({ ...i, notes: i.notes ?? null })));
   }
 
-  return ok({ order: ordersRepo.findDetailed(order.id) }, { status: 201 });
+  /*
+   * Aviso não bloqueante de hodômetro regressivo. A própria OS é excluída da
+   * comparação — ela acabou de ser gravada com esse KM e, se entrasse no MAX(),
+   * o aviso nunca dispararia.
+   */
+  const warning = ordersRepo.mileageWarning(order.vehicleId, order.mileageIn, order.id);
+
+  return ok({ order: ordersRepo.findDetailed(order.id), warning }, { status: 201 });
 });

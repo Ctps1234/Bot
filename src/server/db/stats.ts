@@ -1,7 +1,63 @@
 import { getDb } from "./index";
 import { num, str } from "./mappers";
 import type { OrderStatus, PaymentMethod } from "@/lib/types";
-import { endOfMonthISO, startOfMonthISO, toISODate, todayISO } from "@/lib/utils";
+import { daysSince, endOfMonthISO, startOfMonthISO, toISODate, todayISO } from "@/lib/utils";
+
+/** Faixa de atraso de um saldo a receber. */
+export type AgingBucketKey =
+  | "ATE_7"
+  | "DE_8_A_30"
+  | "DE_31_A_60"
+  | "ACIMA_60"
+  | "NAO_ENTREGUE";
+
+/** Faixas na ordem de exibição. */
+const AGING_BUCKETS: Array<{ key: AgingBucketKey; label: string }> = [
+  { key: "ATE_7", label: "Até 7 dias" },
+  { key: "DE_8_A_30", label: "8 a 30 dias" },
+  { key: "DE_31_A_60", label: "31 a 60 dias" },
+  { key: "ACIMA_60", label: "Mais de 60 dias" },
+  { key: "NAO_ENTREGUE", label: "Ainda não entregue" },
+];
+
+/** Classifica em dias corridos desde o vencimento (entrega/conclusão). */
+function agingBucketFor(days: number | null): AgingBucketKey {
+  if (days === null) return "NAO_ENTREGUE";
+  if (days <= 7) return "ATE_7";
+  if (days <= 30) return "DE_8_A_30";
+  if (days <= 60) return "DE_31_A_60";
+  return "ACIMA_60";
+}
+
+export interface AgingBucket {
+  key: AgingBucketKey;
+  label: string;
+  orders: number;
+  amountCents: number;
+}
+
+export interface ReceivableRow {
+  id: number;
+  number: string;
+  status: OrderStatus;
+  clientName: string;
+  vehicleLabel: string;
+  vehiclePlate: string;
+  /** Data que ancora a cobrança (entrega, conclusão ou entrada). */
+  anchorDate: string | null;
+  /** Dias corridos desde a âncora. */
+  daysOpen: number | null;
+  balanceCents: number;
+  bucket: AgingBucketKey;
+}
+
+export interface ReceivablesAging {
+  buckets: AgingBucket[];
+  /** Saldos mais antigos primeiro, limitados para exibição. */
+  rows: ReceivableRow[];
+  totalCents: number;
+  totalOrders: number;
+}
 
 export interface Period {
   from: string;
@@ -458,6 +514,83 @@ export const statsRepo = {
         vehiclePlate: str(r.vehicle_plate),
         vehicleLabel: [r.vehicle_brand, r.vehicle_model].filter(Boolean).join(" "),
       })),
+    };
+  },
+
+  /**
+   * Contas a receber agrupadas por faixa de atraso.
+   *
+   * A cobrança ancora na entrega do veículo — ou na conclusão, quando a OS já
+   * foi finalizada mas o carro ainda não saiu. OS em execução não são
+   * "atrasadas": entram na faixa "Ainda não entregue", que mostra receita em
+   * andamento e não inadimplência.
+   */
+  receivablesAging(limit = 8): ReceivablesAging {
+    const db = getDb();
+    const raw = db
+      .prepare(
+        `SELECT o.id, o.number, o.status, o.entry_date, o.finished_at, o.delivered_at,
+                o.total_cents, o.paid_cents,
+                c.name AS client_name, v.plate AS vehicle_plate,
+                v.brand AS vehicle_brand, v.model AS vehicle_model
+           FROM orders o
+           JOIN clients c ON c.id = o.client_id
+           JOIN vehicles v ON v.id = o.vehicle_id
+          WHERE o.status <> 'CANCELADA'
+            AND (o.total_cents - o.paid_cents) > 0`,
+      )
+      .all();
+
+    const buckets = new Map<AgingBucketKey, AgingBucket>(
+      AGING_BUCKETS.map((b) => [b.key, { ...b, orders: 0, amountCents: 0 }]),
+    );
+
+    const rows: ReceivableRow[] = [];
+    let totalCents = 0;
+
+    for (const r of raw) {
+      const balanceCents = Math.max(0, num(r.total_cents) - num(r.paid_cents));
+      if (balanceCents <= 0) continue;
+
+      // toISODate() converte o instante UTC em data local — a mesma base usada
+      // na tela, para a faixa de atraso bater com o que o usuário vê.
+      const dueDate =
+        toISODate(strOrNullSafe(r.delivered_at)) ?? toISODate(strOrNullSafe(r.finished_at));
+      const anchorDate = dueDate ?? toISODate(strOrNullSafe(r.entry_date));
+      const daysOpen = anchorDate === null ? null : Math.max(0, daysSince(anchorDate) ?? 0);
+      const bucket = agingBucketFor(dueDate === null ? null : daysOpen);
+
+      totalCents += balanceCents;
+      const target = buckets.get(bucket);
+      if (target) {
+        target.orders += 1;
+        target.amountCents += balanceCents;
+      }
+
+      rows.push({
+        id: num(r.id),
+        number: str(r.number),
+        status: str(r.status) as OrderStatus,
+        clientName: str(r.client_name),
+        vehicleLabel: [r.vehicle_brand, r.vehicle_model].filter(Boolean).join(" "),
+        vehiclePlate: str(r.vehicle_plate),
+        anchorDate,
+        daysOpen,
+        balanceCents,
+        bucket,
+      });
+    }
+
+    // Mais antigos primeiro; empate na idade decide pelo maior saldo.
+    rows.sort(
+      (a, b) => (b.daysOpen ?? -1) - (a.daysOpen ?? -1) || b.balanceCents - a.balanceCents,
+    );
+
+    return {
+      buckets: AGING_BUCKETS.map((b) => buckets.get(b.key)!),
+      rows: rows.slice(0, Math.max(1, limit)),
+      totalCents,
+      totalOrders: rows.length,
     };
   },
 

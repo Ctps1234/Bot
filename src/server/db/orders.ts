@@ -670,6 +670,44 @@ export const ordersRepo = {
       .map((r) => ({ status: String(r.status) as OrderStatus, count: num(r.count) }));
   },
 
+  /**
+   * Confere o hodômetro informado contra o histórico do veículo.
+   *
+   * Retorna um aviso **não bloqueante** quando a quilometragem é menor que a já
+   * registrada em outra OS do mesmo veículo — quase sempre erro de digitação no
+   * balcão (ex.: 12000 em vez de 120000). Hodômetro não anda para trás.
+   *
+   * `excludeOrderId` impede que a OS seja comparada com ela mesma ao editar.
+   */
+  mileageWarning(
+    vehicleId: number,
+    mileageIn: number | null,
+    excludeOrderId?: number,
+  ): string | null {
+    if (!mileageIn || mileageIn <= 0) return null;
+
+    const params: (string | number)[] = [vehicleId];
+    let sql = `SELECT MAX(mileage_in) AS max_km
+                 FROM orders
+                WHERE vehicle_id = ?
+                  AND mileage_in IS NOT NULL
+                  AND status <> 'CANCELADA'`;
+    if (excludeOrderId !== undefined) {
+      sql += " AND id <> ?";
+      params.push(excludeOrderId);
+    }
+
+    const row = getDb().prepare(sql).get(...params);
+    const maxKm = num(row?.max_km);
+    if (!maxKm || mileageIn >= maxKm) return null;
+
+    const br = (n: number) => n.toLocaleString("pt-BR");
+    return (
+      `O hodômetro informado (${br(mileageIn)} km) é menor que o último registro deste ` +
+      `veículo (${br(maxKm)} km). Hodômetro não anda para trás — confira o valor.`
+    );
+  },
+
   touch(id: number) {
     touchOrder(getDb(), id);
   },

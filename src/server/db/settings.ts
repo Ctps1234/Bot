@@ -17,6 +17,22 @@ const DEFAULTS: WorkshopSettings = {
     "Serviços elétricos com garantia. Guarde esta ordem de serviço para acionar a garantia.",
 };
 
+/**
+ * Valores de identidade gravados pelo seed como exemplo.
+ *
+ * Ficam aqui (e não duplicados no seed) para que a detecção de "configuração
+ * pendente" e a carga inicial nunca divirjam.
+ */
+export const SAMPLE_IDENTITY = {
+  workshopName: "Auto Elétrica Andrade",
+  legalName: "Auto Elétrica Andrade ME",
+  document: "34.567.890/0001-12",
+  phone: "(21) 3322-4455",
+  address: "Rua Visconde de Santa Isabel, 340 — Vila Isabel",
+  city: "Rio de Janeiro",
+  state: "RJ",
+} as const;
+
 const KEY_MAP: Record<string, keyof WorkshopSettings> = {
   workshop_name: "workshopName",
   legal_name: "legalName",
@@ -110,3 +126,28 @@ export const settingsRepo = {
 };
 
 export { DEFAULTS as DEFAULT_SETTINGS };
+
+/**
+ * Aponta quais dados de identidade da oficina ainda estão vazios ou iguais ao
+ * exemplo do seed — ou seja, o que falta preencher em Configurações antes de
+ * imprimir uma OS com o cabeçalho correto.
+ *
+ * Retorna rótulos em pt-BR prontos para exibição. Lista vazia = tudo configurado.
+ */
+export function identityGaps(s: WorkshopSettings): string[] {
+  const gaps: string[] = [];
+
+  /** Campo pendente quando vazio ou idêntico ao exemplo do seed. */
+  const pending = (value: string, sample: string) =>
+    !value.trim() || value.trim() === sample;
+
+  const name = s.workshopName.trim();
+  if (!name || name === SAMPLE_IDENTITY.workshopName || name === DEFAULTS.workshopName) {
+    gaps.push("nome da oficina");
+  }
+  if (pending(s.document, SAMPLE_IDENTITY.document)) gaps.push("CNPJ");
+  if (pending(s.phone, SAMPLE_IDENTITY.phone)) gaps.push("telefone");
+  if (pending(s.address, SAMPLE_IDENTITY.address)) gaps.push("endereço");
+
+  return gaps;
+}

@@ -15,7 +15,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { ensureDb, getDb, migrate, resolveDbPath } from "../src/server/db/index";
-import { settingsRepo } from "../src/server/db/settings";
+import { SAMPLE_IDENTITY, settingsRepo } from "../src/server/db/settings";
 import { usersRepo } from "../src/server/db/users";
 import { clientsRepo } from "../src/server/db/clients";
 import { ordersRepo } from "../src/server/db/orders";
@@ -29,7 +29,11 @@ const NO_DEMO = args.includes("--no-demo");
 const ADMIN_EMAIL = process.env.SEED_ADMIN_EMAIL ?? "admin@oficina.com";
 const ADMIN_PASSWORD = process.env.SEED_ADMIN_PASSWORD ?? "admin123";
 const ADMIN_NAME = process.env.SEED_ADMIN_NAME ?? "Carlos Andrade";
-const WORKSHOP_NAME = process.env.SEED_WORKSHOP_NAME ?? "Auto Elétrica Andrade";
+/*
+ * A identidade de exemplo vem de SAMPLE_IDENTITY (mesma fonte usada por
+ * identityGaps() para avisar na interface que faltam dados reais da oficina).
+ */
+const WORKSHOP_NAME = process.env.SEED_WORKSHOP_NAME ?? SAMPLE_IDENTITY.workshopName;
 
 /* ------------------------------- utilidades -------------------------------- */
 
@@ -37,6 +41,24 @@ function daysAgo(n: number): string {
   const d = new Date();
   d.setDate(d.getDate() - n);
   return toISODate(d) as string;
+}
+
+/**
+ * Instante ISO em horário comercial a partir de uma data local (YYYY-MM-DD).
+ *
+ * Os marcos de fluxo (concluída/entregue/cancelada) são gravados pelo
+ * repositório como `nowISO()`; sem retrodatá-los, toda OS pareceria entregue
+ * hoje e o aging de contas a receber não teria faixa nenhuma.
+ *
+ * A string sem sufixo de fuso é interpretada como horário local e convertida
+ * para UTC, mantendo coerência com o fuso em que o sistema roda.
+ */
+function atBusinessHours(dateISO: string, hourRand: number, minuteRand: number): string {
+  const hour = 8 + Math.floor(hourRand * 10); // 08h às 17h
+  const minute = Math.floor(minuteRand * 60);
+  const second = Math.floor(minuteRand * 1000) % 60;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return new Date(`${dateISO}T${pad(hour)}:${pad(minute)}:${pad(second)}`).toISOString();
 }
 
 function pick<T>(list: T[], seed: number): T {
@@ -536,12 +558,50 @@ function seedDemo() {
       })),
     );
 
-    // aplica o status (com timestamps coerentes)
+    // aplica o status e retrodata os marcos para a mesma linha do tempo da OS
     if (status !== "ABERTA") {
       ordersRepo.setStatus(order.id, "EM_EXECUCAO");
       if (status === "CONCLUIDA" || status === "ENTREGUE") ordersRepo.setStatus(order.id, "CONCLUIDA");
       if (status === "ENTREGUE") ordersRepo.setStatus(order.id, "ENTREGUE");
       if (status === "CANCELADA") ordersRepo.cancel(order.id, "Cliente desistiu do serviço");
+
+      /*
+       * O repositório grava os marcos com nowISO(); aqui eles são reposicionados
+       * para datas coerentes com a idade da OS — conclusão 1 a 3 dias após a
+       * entrada, entrega 0 a 2 dias após a conclusão. É isso que dá faixas reais
+       * ao aging de contas a receber, em vez de tudo "entregue hoje".
+       */
+      const finishOffset = 1 + Math.floor(random() * 3);
+      const deliverOffset = finishOffset + Math.floor(random() * 3);
+      const finishedTs = atBusinessHours(
+        daysAgo(Math.max(0, age - finishOffset)),
+        random(),
+        random(),
+      );
+      const deliveredTs = atBusinessHours(
+        daysAgo(Math.max(0, age - deliverOffset)),
+        random(),
+        random(),
+      );
+
+      const db = getDb();
+      if (status === "CANCELADA") {
+        db.prepare("UPDATE orders SET canceled_at = ?, updated_at = ? WHERE id = ?").run(
+          finishedTs,
+          finishedTs,
+          order.id,
+        );
+      } else if (status === "CONCLUIDA") {
+        db.prepare("UPDATE orders SET finished_at = ?, updated_at = ? WHERE id = ?").run(
+          finishedTs,
+          finishedTs,
+          order.id,
+        );
+      } else if (status === "ENTREGUE") {
+        db.prepare(
+          "UPDATE orders SET finished_at = ?, delivered_at = ?, updated_at = ? WHERE id = ?",
+        ).run(finishedTs, deliveredTs, deliveredTs, order.id);
+      }
     }
 
     // pagamentos

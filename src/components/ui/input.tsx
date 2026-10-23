@@ -144,7 +144,8 @@ export function SearchInput({
         <circle cx="11" cy="11" r="7" />
         <path d="m20 20-3.5-3.5" />
       </svg>
-      <input className="input pl-9" {...rest} />
+      {/* data-shortcut dá um seletor estável para o atalho "/" focar a busca. */}
+      <input data-shortcut="search" className="input pl-9" {...rest} />
     </div>
   );
 }

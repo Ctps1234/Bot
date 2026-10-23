@@ -142,12 +142,17 @@ export function OrderDetail({ order: initial, settings, technicians, clientVehic
   async function patch(payload: Record<string, unknown>, message: string) {
     setBusy(message);
     try {
-      const { order: updated } = await api.patch<{ order: OrderWithRelations }>(
-        `/api/orders/${order.id}`,
-        payload,
-      );
+      const { order: updated, warning } = await api.patch<{
+        order: OrderWithRelations;
+        warning?: string | null;
+      }>(`/api/orders/${order.id}`, payload);
       setOrder(updated);
       toast.success(message);
+      /*
+       * Aviso não bloqueante do servidor — hoje, hodômetro menor que o último
+       * registrado para o veículo. Só vem quando KM/veículo foram alterados.
+       */
+      if (warning) toast.warning("Confira o hodômetro", warning);
       router.refresh();
       return true;
     } catch (err) {

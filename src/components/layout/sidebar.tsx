@@ -7,6 +7,7 @@ import {
   BarChart3,
   Car,
   FileText,
+  Keyboard,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -18,6 +19,7 @@ import {
   Zap,
 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { SHOW_SHORTCUTS_EVENT } from "./keyboard-shortcuts";
 import type { SessionUser } from "./types";
 
 const NAV = [
@@ -96,6 +98,15 @@ export function Sidebar({
             <p className="truncate text-[13px] font-semibold text-white">{user.name}</p>
             <p className="truncate text-[11px] text-slate-500">{user.roleLabel}</p>
           </div>
+          <button
+            type="button"
+            title="Atalhos de teclado (?)"
+            aria-label="Atalhos de teclado"
+            onClick={() => window.dispatchEvent(new Event(SHOW_SHORTCUTS_EVENT))}
+            className="rounded-lg p-1.5 text-slate-500 transition hover:bg-white/8 hover:text-white"
+          >
+            <Keyboard className="h-4 w-4" />
+          </button>
           <form action="/api/auth/logout" method="post">
             <button
               type="submit"

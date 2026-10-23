@@ -89,12 +89,21 @@ npm run db:no-demo
 - Estorno de lançamento (administrador/gestor) com recálculo do saldo.
 - Tela com totais do filtro: faturado, recebido, **a receber** e recebido no mês.
 - Baixa de pagamento direto da lista, sem precisar abrir a OS.
+- **Contas a receber por faixa de atraso** (`Aging`): `Até 7 dias`, `8 a 30`, `31 a 60`,
+  `Mais de 60` e `Ainda não entregue`, com valor e quantidade por faixa mais a lista dos saldos
+  mais antigos. A cobrança ancora na **entrega** do veículo (ou na conclusão, se ainda não
+  entregue); OS em execução entra na última faixa porque é receita em andamento, não
+  inadimplência.
 
 ### Relatórios
 Faturamento, ticket médio, recebido × a receber, receita por mês, **peças × mão de obra**,
 serviços mais executados, peças mais usadas, recebimentos por forma de pagamento, produção por
 técnico e principais clientes — com período customizável, atalhos (hoje, 7/30 dias, este mês, mês
 passado, este ano), exportação CSV e impressão.
+
+A exportação CSV baixa **as ordens de serviço do período** (nº, cliente, veículo, placa, status,
+pagamento, entrada, previsão, entrega, KM, total, recebido e saldo) no padrão Excel pt-BR:
+separador `;`, decimal com vírgula e BOM UTF-8 para os acentos.
 
 ### Perfis de acesso
 | Perfil | Pode |
@@ -106,6 +115,31 @@ passado, este ano), exportação CSV e impressão.
 
 A autorização é aplicada na API (não só na interface): um técnico recebe `403` ao tentar criar
 usuário, alterar configurações ou estornar pagamento.
+
+### Produtividade no balcão
+Atalhos de teclado para quem abre OS o dia inteiro. Não disparam quando o foco está em um campo de
+texto nem com um modal aberto.
+
+| Tecla | Ação |
+| --- | --- |
+| `N` | Nova ordem de serviço |
+| `/` | Focar a busca da tela atual |
+| `G` + `D` `O` `C` `V` `F` `R` `S` | Ir para Painel, OS, Clientes, Veículos, Financeiro, Relatórios, Configurações |
+| `?` | Abrir esta ajuda |
+
+O botão de teclado no rodapé do menu abre a mesma ajuda — o recurso é descobrível sem depender de
+o usuário adivinhar o `?`.
+
+### Avisos de conferência
+Dois lembretes não bloqueantes, pensados para evitar erro silencioso:
+
+- **Configuração pendente** — enquanto nome, CNPJ, telefone ou endereço da oficina estiverem vazios
+  ou iguais ao exemplo do seed, um aviso aponta exatamente o que falta, já que esses dados saem no
+  cabeçalho da OS impressa. É descartável (o "X" grava a escolha no navegador).
+- **Hodômetro regressivo** — ao salvar uma OS com quilometragem menor que a já registrada para o
+  mesmo veículo, a OS é criada normalmente mas um aviso pede conferência: hodômetro não anda para
+  trás, e o caso mais comum é erro de digitação (`12000` em vez de `120000`). Vale também ao editar
+  o KM de uma OS existente.
 
 ---
 
