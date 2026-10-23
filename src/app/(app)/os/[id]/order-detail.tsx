@@ -302,8 +302,50 @@ export function OrderDetail({ order: initial, settings, technicians, clientVehic
     .filter((i) => i.kind === "SERVICO")
     .reduce((s, i) => s + i.totalCents, 0);
 
+  /*
+   * Cabeçalho do documento impresso. Fica oculto na tela — o menu lateral já
+   * mostra o nome da oficina — e aparece só no papel, via .print-only.
+   *
+   * Não usa nada derivado de new Date(): este é um client component e um valor
+   * diferente entre servidor e navegador causaria divergência de hidratação.
+   */
+  const docDigits = settings.document.replace(/\D/g, "");
+  const docLabel =
+    docDigits.length === 14 ? "CNPJ" : docDigits.length === 11 ? "CPF" : "";
+  const addressLine = [
+    settings.address,
+    [settings.city, settings.state].filter(Boolean).join("/"),
+  ]
+    .filter(Boolean)
+    .join(" — ");
+
   return (
     <>
+      <div className="print-only mb-4 border-b-2 border-slate-800 pb-2">
+        <div className="flex items-start justify-between gap-6">
+          <div className="min-w-0">
+            <p className="text-base font-bold">{settings.workshopName}</p>
+            {settings.legalName && settings.legalName !== settings.workshopName ? (
+              <p className="text-[10pt]">{settings.legalName}</p>
+            ) : null}
+            {settings.document ? (
+              <p className="text-[10pt]">
+                {docLabel ? `${docLabel} ` : ""}
+                {formatDocument(settings.document, "JURIDICA")}
+              </p>
+            ) : null}
+            {settings.phone ? (
+              <p className="text-[10pt]">{formatPhone(settings.phone)}</p>
+            ) : null}
+            {addressLine ? <p className="text-[10pt]">{addressLine}</p> : null}
+          </div>
+          <div className="shrink-0 text-right">
+            <p className="text-[9pt] tracking-wide uppercase">Ordem de serviço</p>
+            <p className="font-mono text-lg font-bold">{order.number}</p>
+          </div>
+        </div>
+      </div>
+
       <PageHeader
         title={
           <span className="flex flex-wrap items-center gap-2.5">
@@ -1305,6 +1347,24 @@ export function OrderDetail({ order: initial, settings, technicians, clientVehic
           </>
         }
       />
+
+      {/*
+       * Rodapé do documento impresso: os termos configuráveis em Configurações
+       * (garantia e taxa de pátio) mais as linhas de assinatura. Só no papel.
+       */}
+      <div className="print-only mt-5 border-t border-slate-400 pt-2">
+        {settings.printFooter ? (
+          <p className="text-[9.5pt] leading-snug">{settings.printFooter}</p>
+        ) : null}
+        <div className={cn("flex gap-10", settings.printFooter ? "mt-8" : "mt-2")}>
+          <div className="flex-1 border-t border-slate-600 pt-1 text-center text-[9pt]">
+            Assinatura do cliente
+          </div>
+          <div className="flex-1 border-t border-slate-600 pt-1 text-center text-[9pt]">
+            {settings.workshopName}
+          </div>
+        </div>
+      </div>
     </>
   );
 }

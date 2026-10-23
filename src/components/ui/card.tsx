@@ -107,7 +107,10 @@ export function PageHeader({
           </h1>
           {subtitle ? <p className="mt-1 text-sm text-slate-500">{subtitle}</p> : null}
         </div>
-        {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
+        {/* Ações de página são interface, não conteúdo do documento: nunca saem no papel. */}
+        {actions ? (
+          <div className="no-print flex flex-wrap items-center gap-2">{actions}</div>
+        ) : null}
       </div>
       {children}
     </div>

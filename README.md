@@ -88,7 +88,12 @@ que impede esse tipo de bug de voltar — as asserções de data precisam valer 
   e observação. Totais recalculados automaticamente, com desconto opcional.
 - Numeração sequencial automática (`OS-0001`, `OS-0002`…) controlada em `Configurações`.
 - Alerta de **OS com previsão de entrega vencida** no painel e na própria OS.
-- **Impressão**: o botão Imprimir usa layout de impressão dedicado (menu e botões saem da página).
+- **Impressão**: o botão Imprimir usa uma camada de impressão dedicada em A4. Menu lateral, botões,
+  modais e toasts saem do papel (`.no-print`); entram um **cabeçalho com a identidade da oficina**
+  (nome, razão social, CNPJ/CPF, telefone e endereço) e um **rodapé com os termos configuráveis**
+  (garantia e taxa de pátio) mais linhas de assinatura do cliente e da oficina (`.print-only`,
+  ocultos na tela). A identidade vem de Configurações — é o que torna a OS impressa um documento da
+  sua oficina, e não um modelo genérico.
 
 ### Clientes e veículos
 - Cliente pessoa física ou jurídica, com CPF/CNPJ, telefone, e-mail, endereço e observações.
