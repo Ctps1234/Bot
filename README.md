@@ -45,12 +45,30 @@ pagamentos), para o painel e os relatórios já abrirem com conteúdo real.
 | `npm run db:fresh` | **Apaga** o banco e recria com os dados de demonstração |
 | `npm run db:no-demo` | Cria só configurações e usuários, sem dados de exemplo |
 | `npm run typecheck` | Checagem de tipos |
+| `npm test` | Testes das regras de negócio e dos utilitários |
+| `npm run test:tz` | Mesma suíte em **seis fusos horários** (ver abaixo) |
 
 Para começar **vazio** (sem os dados de exemplo), mantendo o usuário admin:
 
 ```bash
 npm run db:no-demo
 ```
+
+### Testes
+
+46 testes usando o runner nativo do Node (`node:test`) com `tsx` como loader — **nenhuma
+dependência nova**. Cobrem as regras que causariam erro silencioso se regredissem:
+
+- `tests/utils.test.ts` — dinheiro em centavos (análise do formato brasileiro, ida e volta sem
+  perda de precisão, o caso clássico de `float`), datas, placa, telefone e CPF/CNPJ.
+- `tests/rules.test.ts` — fluxo de status da OS, derivação do status financeiro, marcos de data por
+  status, faixas de atraso do aging e detecção de configuração pendente.
+
+`npm run test:tz` repete a suíte em `America/Sao_Paulo`, `America/New_York`, `UTC`,
+`Europe/Lisbon`, `Asia/Tokyo` e `Pacific/Kiritimati`. Existe por causa de um defeito real já
+corrigido: o JavaScript lê data só-data (`"2026-10-19"`) como meia-noite **UTC**, o que em fuso
+negativo fazia toda data aparecer um dia antes. Rodar dos dois lados de Greenwich (até UTC+14) é o
+que impede esse tipo de bug de voltar — as asserções de data precisam valer em qualquer fuso.
 
 ---
 

@@ -104,8 +104,13 @@ export function recomputeOrderTotals(orderId: number): Order | null {
   return ordersRepo.findById(orderId);
 }
 
-/** Aplica os timestamps automáticos conforme o status. */
-function statusTimestampPatch(
+/**
+ * Aplica os timestamps automáticos conforme o status.
+ *
+ * Marca o milestone ao avançar e limpa os posteriores ao retroceder, para uma OS
+ * reaberta não ficar com data de entrega fantasma.
+ */
+export function statusTimestampPatch(
   status: OrderStatus,
   current: Order,
 ): Partial<Record<"finishedAt" | "deliveredAt" | "canceledAt", string | null>> {

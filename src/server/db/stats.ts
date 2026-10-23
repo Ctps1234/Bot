@@ -21,7 +21,7 @@ const AGING_BUCKETS: Array<{ key: AgingBucketKey; label: string }> = [
 ];
 
 /** Classifica em dias corridos desde o vencimento (entrega/conclusão). */
-function agingBucketFor(days: number | null): AgingBucketKey {
+export function agingBucketFor(days: number | null): AgingBucketKey {
   if (days === null) return "NAO_ENTREGUE";
   if (days <= 7) return "ATE_7";
   if (days <= 30) return "DE_8_A_30";

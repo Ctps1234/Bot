@@ -11,6 +11,8 @@
     "start": "node scripts/run-next.mjs start -H 0.0.0.0 -p 3000",
     "setup": "node scripts/setup.mjs",
     "typecheck": "tsc --noEmit",
+    "test": "node scripts/run-tests.mjs",
+    "test:tz": "node scripts/run-tests.mjs --all-tz",
     "db:seed": "tsx prisma/seed.ts",
     "db:fresh": "tsx prisma/seed.ts --fresh",
     "db:no-demo": "tsx prisma/seed.ts --no-demo"
