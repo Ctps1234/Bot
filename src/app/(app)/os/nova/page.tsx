@@ -3,7 +3,6 @@ import { ensureDb, getDb } from "@/server/db";
 import { clientsRepo } from "@/server/db/clients";
 import { usersRepo } from "@/server/db/users";
 import { settingsRepo } from "@/server/db/settings";
-import { ordersRepo } from "@/server/db/orders";
 import { OrderForm } from "./order-form";
 
 export const metadata: Metadata = { title: "Nova OS" };

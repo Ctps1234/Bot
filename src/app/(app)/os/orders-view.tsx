@@ -10,7 +10,6 @@ import {
   Filter,
   FileText,
   Plus,
-  Search,
   X,
 } from "lucide-react";
 import { Badge, Card, EmptyState, PageHeader } from "@/components/ui/card";
@@ -21,7 +20,6 @@ import { api, qs } from "@/lib/api-client";
 import { cn, daysSince, formatDate, formatMoney } from "@/lib/utils";
 import {
   FIN_LABEL,
-  STATUS_LABEL,
   type FinancialStatus,
   type OrderStatus,
 } from "@/lib/types";

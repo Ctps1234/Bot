@@ -19,7 +19,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, PageHeader } from "@/components/ui/card";
 import { Field, Input, Select, Textarea } from "@/components/ui/input";
-import { ItemsEditor, emptyDraft, itemsTotal, type DraftItem } from "@/components/orders/items-editor";
+import { ItemsEditor, itemsTotal, type DraftItem } from "@/components/orders/items-editor";
 import { api, errorMessage } from "@/lib/api-client";
 import { useToast } from "@/components/ui/toast";
 import { cn, formatMoney, onlyDigits, todayISO, addDaysISO, toCents } from "@/lib/utils";

@@ -25,7 +25,6 @@ import { FinancialBadge, PlateTag, StatusBadge } from "@/components/orders/statu
 import { api, errorMessage } from "@/lib/api-client";
 import { useToast } from "@/components/ui/toast";
 import {
-  cn,
   formatDate,
   formatDocument,
   formatMoney,

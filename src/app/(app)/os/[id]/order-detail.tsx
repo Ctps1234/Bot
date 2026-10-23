@@ -8,11 +8,9 @@ import {
   ArrowLeft,
   ArrowRight,
   Banknote,
-  CalendarClock,
   Car,
   CheckCircle2,
   ClipboardList,
-  Clock,
   CreditCard,
   FileText,
   Fuel,
@@ -25,7 +23,6 @@ import {
   Save,
   ShieldCheck,
   Trash2,
-  User,
   Users,
   Wrench,
   XCircle,
@@ -34,7 +31,7 @@ import { Badge, Card, CardHeader, KeyValue, PageHeader } from "@/components/ui/c
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select, Textarea } from "@/components/ui/input";
 import { ConfirmDialog, Modal } from "@/components/ui/modal";
-import { ItemsEditor, emptyDraft, itemsTotal, type DraftItem } from "@/components/orders/items-editor";
+import { ItemsEditor, itemsTotal, type DraftItem } from "@/components/orders/items-editor";
 import { FinancialBadge, PlateTag, StatusBadge } from "@/components/orders/status-badge";
 import { api, errorMessage } from "@/lib/api-client";
 import { useToast } from "@/components/ui/toast";
@@ -53,7 +50,6 @@ import {
   vehicleLabel,
 } from "@/lib/utils";
 import {
-  ITEM_KIND_LABEL,
   NEXT_ACTION_LABEL,
   PAYMENT_METHODS,
   PAYMENT_METHOD_LABEL,
