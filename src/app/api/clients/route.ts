@@ -23,7 +23,7 @@ export const GET = withAuth(null, async (request) => {
     return ok({ rows: clientsRepo.search(q, Number(url.searchParams.get("limit") ?? 8)) });
   }
 
-  const result = clientsRepo.list({
+  const result = clientsRepo.listWithStats({
     q,
     limit: Number.isFinite(limit) ? limit : 100,
     offset: Number.isFinite(offset) ? offset : 0,

@@ -10,22 +10,14 @@ import { Modal, ConfirmDialog } from "@/components/ui/modal";
 import { api, errorMessage, qs } from "@/lib/api-client";
 import { useToast } from "@/components/ui/toast";
 import { cn, formatDate, formatDocument, formatMoney, formatPhone, initials, relativeDay } from "@/lib/utils";
-import { PERSON_TYPE_LABEL, type PersonType } from "@/lib/types";
+import { PERSON_TYPE_LABEL, type ClientWithStats, type PersonType } from "@/lib/types";
 
-export interface ClientRow {
-  id: number;
-  name: string;
-  personType: PersonType;
-  document: string | null;
-  phone: string | null;
-  email: string | null;
-  address: string | null;
-  notes: string | null;
-  vehicles: number;
-  orders: number;
-  lastVisit: string | null;
-  balanceCents: number;
-}
+/**
+ * Linha da tabela de clientes. É o tipo compartilhado devolvido por
+ * `clientsRepo.listWithStats()` — a página e a rota `/api/clients` produzem a
+ * mesma forma, então buscar não perde as colunas de agregados.
+ */
+export type ClientRow = ClientWithStats;
 
 const EMPTY = {
   name: "",

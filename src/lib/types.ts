@@ -139,6 +139,24 @@ export interface Client {
   deletedAt: string | null;
 }
 
+/**
+ * Cliente + agregados exibidos na listagem.
+ *
+ * Produzido por `clientsRepo.listWithStats()`, usado tanto pela página
+ * (server component) quanto pela API `/api/clients` — assim a busca no
+ * cliente devolve as mesmas colunas que a carga inicial.
+ */
+export interface ClientWithStats extends Client {
+  /** Veículos ativos cadastrados. */
+  vehicles: number;
+  /** Total de OS (inclui canceladas). */
+  orders: number;
+  /** Data da OS mais recente (`YYYY-MM-DD`) ou null. */
+  lastVisit: string | null;
+  /** Saldo em aberto (total - recebido), sem OS canceladas. */
+  balanceCents: number;
+}
+
 export interface Vehicle {
   id: number;
   clientId: number;

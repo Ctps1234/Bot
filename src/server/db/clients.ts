@@ -1,6 +1,6 @@
 import { getDb } from "./index";
 import { mapClient, mapVehicle, nowISO } from "./mappers";
-import type { Client, PersonType, Vehicle, Voltage } from "@/lib/types";
+import type { Client, ClientWithStats, PersonType, Vehicle, Voltage } from "@/lib/types";
 import { normalizePlate, onlyDigits } from "@/lib/utils";
 
 export interface ClientInput {
@@ -34,6 +34,56 @@ export interface ClientListFilters {
 const CLIENT_SELECT = "SELECT * FROM clients WHERE deleted_at IS NULL";
 
 export const clientsRepo = {
+  /**
+   * Lista clientes já com os agregados exibidos na tabela (veículos, OS,
+   * última visita e saldo em aberto).
+   *
+   * Única fonte desses números: a página e a rota `/api/clients` chamam este
+   * método, então a busca no cliente devolve as mesmas colunas da carga inicial.
+   */
+  listWithStats(
+    filters: ClientListFilters = {},
+  ): { rows: ClientWithStats[]; total: number } {
+    const { rows, total } = clientsRepo.list(filters);
+    if (rows.length === 0) return { rows: [], total };
+
+    const db = getDb();
+    const ids = rows.map((r) => r.id);
+    const placeholders = ids.map(() => "?").join(",");
+
+    const stats = db
+      .prepare(
+        `SELECT c.id AS client_id,
+                COUNT(v.id) AS vehicles,
+                (SELECT COUNT(*) FROM orders o WHERE o.client_id = c.id) AS orders,
+                (SELECT MAX(o.entry_date) FROM orders o WHERE o.client_id = c.id) AS last_visit,
+                (SELECT COALESCE(SUM(o.total_cents - o.paid_cents), 0) FROM orders o
+                  WHERE o.client_id = c.id AND o.status <> 'CANCELADA') AS balance
+           FROM clients c
+           LEFT JOIN vehicles v ON v.client_id = c.id AND v.deleted_at IS NULL
+          WHERE c.id IN (${placeholders})
+          GROUP BY c.id`,
+      )
+      .all(...ids) as Array<Record<string, unknown>>;
+
+    const byId = new Map<number, Record<string, unknown>>();
+    for (const s of stats) byId.set(Number(s.client_id), s);
+
+    return {
+      rows: rows.map((c) => {
+        const s = byId.get(c.id);
+        return {
+          ...c,
+          vehicles: Number(s?.vehicles ?? 0),
+          orders: Number(s?.orders ?? 0),
+          lastVisit: s?.last_visit ? String(s.last_visit) : null,
+          balanceCents: Number(s?.balance ?? 0),
+        };
+      }),
+      total,
+    };
+  },
+
   list(filters: ClientListFilters = {}): { rows: Client[]; total: number } {
     const db = getDb();
     const params: (string | number)[] = [];
